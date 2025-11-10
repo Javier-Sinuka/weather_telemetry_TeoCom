@@ -1,91 +1,53 @@
-<!DOCTYPE html>
-<html lang="es">
-<head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Telemetría: Temperatura, Humedad y Presión</title>
-    <link rel="stylesheet" href="./styles.css" />
-    <!-- Chart.js CDN -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-</head>
-<body>
-<header>
-    <h1>Telemetría de ambiente</h1>
-    <p>Valores obtenidos por script Python y publicados en este repo.</p>
-</header>
-
-
-<main>
-    <section class="cards">
-        <div class="card">
-            <h2>Temperatura (°C)</h2>
-            <canvas id="tempChart"></canvas>
-        </div>
-        <div class="card">
-            <h2>Humedad (%HR)</h2>
-            <canvas id="humChart"></canvas>
-        </div>
-        <div class="card">
-            <h2>Presión (hPa)</h2>
-            <canvas id="presChart"></canvas>
-        </div>
-    </section>
-</main>
-
-
-<footer>
-    <small>Actualiza cada 30 s desde <code>data/data.json</code>.</small>
-</footer>
-
-
 <script>
-    const DATA_URL = './data/data.json';
+  const DATA_URL = './data/data.json';
 
+  const createChart = (ctx, label) => new Chart(ctx, {
+    type: 'line',
+    data: { labels: [], datasets: [{ label, data: [], tension: 0.25 }] },
+    options: {
+      responsive: true,
+      scales: {
+        x: { title: { display: true, text: 'Tiempo' } },
+        y: { beginAtZero: false }
+      },
+      plugins: { legend: { display: true } }
+    }
+  });
 
-    const createChart = (ctx, label) => new Chart(ctx, {
-        type: 'line',
-        data: { labels: [], datasets: [{ label, data: [], tension: 0.25 }] },
-        options: {
-            responsive: true,
-            scales: {
-                x: { title: { display: true, text: 'Tiempo' } },
-                y: { beginAtZero: false }
-            },
-            plugins: { legend: { display: true } }
-        }
-    });
+  const tempChart = createChart(document.getElementById('tempChart'), '°C');
+  const humChart  = createChart(document.getElementById('humChart'),  '%');
+  const presChart = createChart(document.getElementById('presChart'), 'hPa');
 
+  async function loadData() {
+    try {
+      // cache-busting para GitHub Pages
+      const url = `${DATA_URL}?t=${Date.now()}`;
+      const res = await fetch(url, { cache: 'no-store' });
+      if (!res.ok) throw new Error('No se pudo leer data.json');
+      const json = await res.json();
 
-    const tempChart = createChart(document.getElementById('tempChart'), '°C');
-    const humChart = createChart(document.getElementById('humChart'), '%');
-    const presChart = createChart(document.getElementById('presChart'), 'hPa');
+      // json = { measurements: [ { ts, temperature, humidity, pressure }, ... ] }
+      const labels = json.measurements.map(m => new Date(m.ts).toLocaleString());
+      const temps  = json.measurements.map(m => m.temperature);
+      const hums   = json.measurements.map(m => m.humidity);
+      const press  = json.measurements.map(m => m.pressure);
 
+      [tempChart, humChart, presChart].forEach(ch => { ch.data.labels = labels; });
+      tempChart.data.datasets[0].data = temps;
+      humChart.data.datasets[0].data  = hums;
+      presChart.data.datasets[0].data = press;
 
-    async function loadData() {
-        try {
-// cache busting para evitar servir desde cache de GitHub Pages
-            const url = `${DATA_URL}?t=${Date.now()}`;
-            const res = await fetch(url, { cache: 'no-store' });
-            if (!res.ok) throw new Error('No se pudo leer data.json');
-            const json = await res.json();
+      tempChart.update();
+      humChart.update();
+      presChart.update();
+    } catch (e) {
+      console.error(e);
+    }
+  }
 
-
-// json = { measurements: [ { ts, temperature, humidity, pressure }, ... ] }
-            const labels = json.measurements.map(m => new Date(m.ts).toLocaleString());
-            const temps = json.measurements.map(m => m.temperature);
-            const hums = json.measurements.map(m => m.humidity);
-            const press = json.measurements.map(m => m.pressure);
-
-
-            [tempChart, humChart, presChart].forEach(ch => { ch.data.labels = labels; });
-            tempChart.data.datasets[0].data = temps;
-            humChart.data.datasets[0].data = hums;
-            presChart.data.datasets[0].data = press;
-
-
-            tempChart.update();
-            humChart.update();
-            presChart.update();
-        } catch (e) {
-            console.error(e);
-        </html>
+  // Cargar al inicio y refrescar cada 30 s
+  loadData();
+  setInterval(loadData, 30_000);
+</script>
+</body>
+</html>
