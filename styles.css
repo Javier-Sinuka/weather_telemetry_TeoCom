@@ -1,8 +1,45 @@
 :root { --gap: 1rem; }
+
 * { box-sizing: border-box; }
-body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, "Helvetica Neue", Arial, sans-serif; margin: 0; }
-header { padding: 1.25rem; background: #111; color: #fff; }
+
+body {
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, "Helvetica Neue", Arial, sans-serif;
+  margin: 0;
+  background: #f7f7f7;
+  color: #111;
+}
+
+header {
+  padding: 1.25rem;
+  background: #111;
+  color: #fff;
+}
+
 main { padding: 1.25rem; }
-.cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: var(--gap); }
-.card { border: 1px solid #ddd; border-radius: 12px; padding: 1rem; background: #fff; box-shadow: 0 4px 16px rgba(0,0,0,0.05); }
-footer { padding: 1rem; color: #555; }
+
+.cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: var(--gap);
+}
+
+.card {
+  border: 1px solid #ddd;
+  border-radius: 12px;
+  padding: 1rem;
+  background: #fff;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.05);
+  min-height: 280px;
+}
+
+.card canvas {
+  width: 100% !important;
+  max-height: 260px;
+}
+
+.card .big { line-height: 1.1; }
+
+footer {
+  padding: 1rem;
+  color: #555;
+}

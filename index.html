@@ -1,53 +1,138 @@
-<script>
-  const DATA_URL = './data/data.json';
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Telemetría: Temperatura, Humedad y Presión</title>
+  <link rel="stylesheet" href="./styles.css" />
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+  <header>
+    <h1>Telemetría de ambiente</h1>
+    <p>Valores obtenidos por script Python y publicados en este repo.</p>
+  </header>
 
-  const createChart = (ctx, label) => new Chart(ctx, {
-    type: 'line',
-    data: { labels: [], datasets: [{ label, data: [], tension: 0.25 }] },
-    options: {
-      responsive: true,
-      scales: {
-        x: { title: { display: true, text: 'Tiempo' } },
-        y: { beginAtZero: false }
-      },
-      plugins: { legend: { display: true } }
-    }
-  });
+  <main>
+    <section class="cards">
+      <div class="card">
+        <h2>Temperatura (°C)</h2>
+        <canvas id="tempChart"></canvas>
+      </div>
+      <div class="card">
+        <h2>Humedad (%HR)</h2>
+        <canvas id="humChart"></canvas>
+      </div>
+      <div class="card">
+        <h2>Presión (hPa)</h2>
+        <canvas id="presChart"></canvas>
+      </div>
+    </section>
+  </main>
 
-  const tempChart = createChart(document.getElementById('tempChart'), '°C');
-  const humChart  = createChart(document.getElementById('humChart'),  '%');
-  const presChart = createChart(document.getElementById('presChart'), 'hPa');
+  <footer>
+    <small>Actualiza cada 30 s desde <code>data/data.json</code>.</small>
+  </footer>
 
-  async function loadData() {
-    try {
-      // cache-busting para GitHub Pages
-      const url = `${DATA_URL}?t=${Date.now()}`;
-      const res = await fetch(url, { cache: 'no-store' });
-      if (!res.ok) throw new Error('No se pudo leer data.json');
-      const json = await res.json();
+  <script>
+    window.addEventListener('DOMContentLoaded', () => {
+      const DATA_URL = './data/data.json';
 
-      // json = { measurements: [ { ts, temperature, humidity, pressure }, ... ] }
-      const labels = json.measurements.map(m => new Date(m.ts).toLocaleString());
-      const temps  = json.measurements.map(m => m.temperature);
-      const hums   = json.measurements.map(m => m.humidity);
-      const press  = json.measurements.map(m => m.pressure);
+      // Indicador de estado
+      const statusEl = document.createElement('div');
+      statusEl.style.margin = '1rem';
+      statusEl.style.color = '#555';
+      document.body.appendChild(statusEl);
+      const setStatus = (msg) => statusEl.textContent = `Estado: ${msg}`;
 
-      [tempChart, humChart, presChart].forEach(ch => { ch.data.labels = labels; });
-      tempChart.data.datasets[0].data = temps;
-      humChart.data.datasets[0].data  = hums;
-      presChart.data.datasets[0].data = press;
+      // Inserta displays grandes para el último valor
+      const makeBig = (card) => {
+        let el = card.querySelector('.big');
+        if (!el) {
+          el = document.createElement('div');
+          el.className = 'big';
+          el.style.fontSize = '2.2rem';
+          el.style.fontWeight = '700';
+          el.style.marginBottom = '0.75rem';
+          card.insertBefore(el, card.querySelector('canvas'));
+        }
+        return el;
+      };
 
-      tempChart.update();
-      humChart.update();
-      presChart.update();
-    } catch (e) {
-      console.error(e);
-    }
-  }
+      const tempBig = makeBig(document.getElementById('tempChart').closest('.card'));
+      const humBig  = makeBig(document.getElementById('humChart').closest('.card'));
+      const presBig = makeBig(document.getElementById('presChart').closest('.card'));
 
-  // Cargar al inicio y refrescar cada 30 s
-  loadData();
-  setInterval(loadData, 30_000);
-</script>
+      // Charts
+      const createChart = (canvas, label) => new Chart(canvas, {
+        type: 'line',
+        data: { labels: [], datasets: [{ label, data: [], tension: 0.25 }] },
+        options: {
+          responsive: true,
+          maintainAspectRatio: true,
+          scales: {
+            x: { title: { display: true, text: 'Tiempo' } },
+            y: { beginAtZero: false }
+          },
+          plugins: { legend: { display: true } }
+        }
+      });
+
+      const tempChart = createChart(document.getElementById('tempChart'), '°C');
+      const humChart  = createChart(document.getElementById('humChart'),  '%');
+      const presChart = createChart(document.getElementById('presChart'), 'hPa');
+
+      async function loadData() {
+        try {
+          setStatus('cargando…');
+          const url = `${DATA_URL}?t=${Date.now()}`; // evita caché de Pages
+          const res = await fetch(url, { cache: 'no-store' });
+          if (!res.ok) {
+            setStatus(`HTTP ${res.status} al leer ${DATA_URL}`);
+            console.error('Fetch error:', res.status, res.statusText);
+            return;
+          }
+          const json = await res.json();
+
+          if (!json || !Array.isArray(json.measurements)) {
+            setStatus('JSON sin "measurements"');
+            console.warn('JSON recibido:', json);
+            return;
+          }
+          if (json.measurements.length === 0) {
+            setStatus('sin datos (measurements vacío)');
+            return;
+          }
+
+          const labels = json.measurements.map(m => new Date(m.ts).toLocaleString());
+          const temps  = json.measurements.map(m => m.temperature);
+          const hums   = json.measurements.map(m => m.humidity);
+          const press  = json.measurements.map(m => m.pressure);
+
+          [tempChart, humChart, presChart].forEach(ch => { ch.data.labels = labels; });
+          tempChart.data.datasets[0].data = temps;
+          humChart.data.datasets[0].data  = hums;
+          presChart.data.datasets[0].data = press;
+
+          tempChart.update(); humChart.update(); presChart.update();
+
+          // Última muestra visible
+          const last = json.measurements[json.measurements.length - 1];
+          tempBig.textContent = `${Number(last.temperature).toFixed(1)} °C`;
+          humBig.textContent  = `${Number(last.humidity).toFixed(1)} %`;
+          presBig.textContent = `${Number(last.pressure).toFixed(1)} hPa`;
+
+          setStatus(`ok · muestras: ${json.measurements.length} · última: ${new Date(last.ts).toLocaleString()}`);
+        } catch (e) {
+          setStatus(`error: ${e.message}`);
+          console.error(e);
+        }
+      }
+
+      loadData();
+      setInterval(loadData, 30_000);
+    });
+  </script>
 </body>
 </html>
