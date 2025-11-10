@@ -1,0 +1,6 @@
+{
+  "measurements": [
+    { "ts": "2025-11-10T14:00:00Z", "temperature": 22.1, "humidity": 48.3, "pressure": 1009.6 },
+    { "ts": "2025-11-10T14:05:00Z", "temperature": 22.2, "humidity": 48.7, "pressure": 1009.4 }
+  ]
+}
